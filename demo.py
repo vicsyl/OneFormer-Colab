@@ -89,16 +89,16 @@ def panoptic_run(img, predictor, metadata):
     predictions = predictor(img, "panoptic")
     panoptic_seg, segments_info = predictions["panoptic_seg"]
     out = visualizer.draw_panoptic_seg_predictions(
-    panoptic_seg.to(cpu_device), segments_info, alpha=0.5
-)
-    return out
+        panoptic_seg.to(cpu_device), segments_info, alpha=0.5
+    )
+    return predictions, out
 
 def instance_run(img, predictor, metadata):
     visualizer = Visualizer(img[:, :, ::-1], metadata=metadata, instance_mode=ColorMode.IMAGE)
     predictions = predictor(img, "instance")
     instances = predictions["instances"].to(cpu_device)
     out = visualizer.draw_instance_predictions(predictions=instances, alpha=0.5)
-    return out
+    return predictions, out
 
 def semantic_run(img, predictor, metadata):
     visualizer = Visualizer(img[:, :, ::-1], metadata=metadata, instance_mode=ColorMode.IMAGE)
@@ -106,7 +106,7 @@ def semantic_run(img, predictor, metadata):
     out = visualizer.draw_sem_seg(
         predictions["sem_seg"].argmax(dim=0).to(cpu_device), alpha=0.5
     )
-    return out
+    return predictions, out
 
 TASK_INFER = {"panoptic": panoptic_run,
               "instance": instance_run,
@@ -156,7 +156,24 @@ for path in list(paths)[:count]:
   img = cv2.imread(path)
   img = imutils.resize(img, width=640)
 
-  out = TASK_INFER[task](img, predictor, metadata).get_image()
+  predictions, out = TASK_INFER[task](img, predictor, metadata).get_image()
+
+  def print(desc, what):
+    print(desc)
+    print(what)
+    print(f"type: {type(what)}")
+    if type(what) == np.ndarray:
+        print(f"shape: {what.shape}")
+    else:
+        try:
+            print(f"shape: {what.shape}")
+        except:
+            print("doen not hape shape")
+
+  panoptic_seg, segments_info = predictions["panoptic_seg"]
+  print(panoptic_seg, "panoptic_seg")
+  print(segments_info, "segments_info")
+
   full_out_path = os.path.join(out_path, os.path.basename(path))
   # cv2_imshow(out[:, :, ::-1])
   cv2.imwrite(full_out_path, out[:, :, ::-1])

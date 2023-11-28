@@ -198,7 +198,7 @@ class _PanopticPrediction:
 
         self._sinfo = {s["id"]: s for s in segments_info}  # seg id -> seg info
         segment_ids, areas = torch.unique(panoptic_seg, sorted=True, return_counts=True)
-        areas = areas.numpy()
+        areas = areas.cpu().numpy()
         sorted_idxs = np.argsort(-areas)
         self._seg_ids, self._seg_areas = segment_ids[sorted_idxs], areas[sorted_idxs]
         self._seg_ids = self._seg_ids.tolist()
@@ -228,14 +228,14 @@ class _PanopticPrediction:
             if sinfo is None or sinfo["isthing"]:
                 # Some pixels (e.g. id 0 in PanopticFPN) have no instance or semantic predictions.
                 continue
-            yield (self._seg == sid).numpy().astype(bool), sinfo
+            yield (self._seg == sid).cpu().numpy().astype(bool), sinfo
 
     def instance_masks(self):
         for sid in self._seg_ids:
             sinfo = self._sinfo.get(sid)
             if sinfo is None or not sinfo["isthing"]:
                 continue
-            mask = (self._seg == sid).numpy().astype(bool)
+            mask = (self._seg == sid).cpu().numpy().astype(bool)
             if mask.sum() > 0:
                 yield mask, sinfo
 

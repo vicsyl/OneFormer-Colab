@@ -156,7 +156,8 @@ for path in list(paths)[:count]:
   img = cv2.imread(path)
   img = imutils.resize(img, width=640)
 
-  predictions, out = TASK_INFER[task](img, predictor, metadata).get_image()
+  predictions, out = TASK_INFER[task](img, predictor, metadata)
+  out = out.get_image()
 
   def print(desc, what):
     print(desc)

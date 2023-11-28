@@ -159,7 +159,7 @@ for path in list(paths)[:count]:
   predictions, out = TASK_INFER[task](img, predictor, metadata)
   out = out.get_image()
 
-  def print(desc, what):
+  def print_me(desc, what):
     print(desc)
     print(what)
     print(f"type: {type(what)}")
@@ -172,8 +172,8 @@ for path in list(paths)[:count]:
             print("doen not hape shape")
 
   panoptic_seg, segments_info = predictions["panoptic_seg"]
-  print(panoptic_seg, "panoptic_seg")
-  print(segments_info, "segments_info")
+  print_me(panoptic_seg, "panoptic_seg")
+  print_me(segments_info, "segments_info")
 
   full_out_path = os.path.join(out_path, os.path.basename(path))
   # cv2_imshow(out[:, :, ::-1])

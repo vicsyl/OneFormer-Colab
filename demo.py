@@ -172,8 +172,8 @@ for path in list(paths)[:count]:
             print("doen not hape shape")
 
   panoptic_seg, segments_info = predictions["panoptic_seg"]
-  print_me(panoptic_seg, "panoptic_seg")
-  print_me(segments_info, "segments_info")
+  print_me("panoptic_seg", panoptic_seg)
+  print_me("segments_info", segments_info)
 
   full_out_path = os.path.join(out_path, os.path.basename(path))
   # cv2_imshow(out[:, :, ::-1])

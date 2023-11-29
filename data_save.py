@@ -8,9 +8,8 @@ from copy import deepcopy
 
 import tomli
 import tomli_w
+import cv2 as cv
 
-# from common.fitting import fit_min_area_rect
-# import cv2 as cv
 
 # TOML #
 def none_to_string(el):
@@ -79,6 +78,12 @@ def read_toml(file_path):
         return toml_dict
 
 
+def fit_min_area_rect(pixels_to_fit):
+    rect = cv.minAreaRect(pixels_to_fit) # (x, y), (width, height), angle_of_rotation
+    box = cv.boxPoints(rect)
+    return box
+
+
 def save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_to_or, segm_img=None):
 
     base = os.path.split(simple_path_prefix)[0]
@@ -87,8 +92,8 @@ def save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_t
     seg_np = panoptic_seg.cpu().numpy()
     for i in range(1, len(segments_info) + 1):
         pixels_to_fit = np.where(seg_np == i)
-        # box = fit_min_area_rect(pixels_to_fit)
-        box = np.array([[0, 0], [0, 1], [1, 1], [1, 0]]).astype(float)
+        box = fit_min_area_rect(pixels_to_fit)
+        # box = np.array([[0, 0], [0, 1], [1, 1], [1, 0]]).astype(float)
         box *= scale_to_or
         segments_info[i - 1]["box"] = box.tolist()
     segments_info = {"objects": segments_info}
@@ -96,12 +101,12 @@ def save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_t
     # simple_segm_img = seg_np.copy().to(float) / 255
     simple_segm_img = seg_np
 
-    # if segm_img:
-    #     cv.imwrite(f"{simple_path_prefix}_segmentation_original.png", segm_img)
+    if segm_img:
+        cv.imwrite(f"{simple_path_prefix}_segmentation_original.png", segm_img)
 
-    # cv.imwrite(f"{simple_path_prefix}_segmentation.png", simple_segm_img)
-    # img_read = cv.imread(f"{simple_path_prefix}_segmentation.png")
-    # assert img_read == simple_segm_img
+    cv.imwrite(f"{simple_path_prefix}_segmentation.png", simple_segm_img)
+    img_read = cv.imread(f"{simple_path_prefix}_segmentation.png")
+    assert img_read == simple_segm_img
 
     write_toml(segments_info, f"{simple_path_prefix}_data.toml")
 

@@ -159,6 +159,8 @@ def compute():
     for e_i, e in enumerate(toml_conf['metropolis_data']):
 
         img_path = e['orig_file_path']
+        # hack - ../../download/... -> ./download/.
+        img_path = img_path[4:]
 
         print(f"path: {img_path}")
         img = cv2.imread(img_path)
@@ -178,13 +180,9 @@ def compute():
         predictions, out = TASK_INFER[task](img, predictor, metadata)
         segm_img = out.get_image()[:, :, ::-1]
         panoptic_seg, segments_info = predictions["panoptic_seg"]
-        assumed_prefix_l = len("../../download/3dod/Training/")
+        assumed_prefix_l = len("./download/3dod/Training/")
         simple_path_prefix = f"{args.out_data_root}/{img_path[assumed_prefix_l:]}"[:-4]
         save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_to_or_0, segm_img)
-
-          # full_out_path = os.path.join(out_path, os.path.basename(img_path))
-          # cv2_imshow(out[:, :, ::-1])
-          # cv2.imwrite(full_out_path, out[)
 
 
 if __name__ == "__main__":

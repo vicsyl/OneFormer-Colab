@@ -91,7 +91,7 @@ def save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_t
 
     seg_np = panoptic_seg.cpu().numpy()
     for i in range(1, len(segments_info) + 1):
-        pixels_to_fit = np.where(seg_np == i)
+        pixels_to_fit = np.array(np.where(seg_np == i)).T
         box = fit_min_area_rect(pixels_to_fit)
         # box = np.array([[0, 0], [0, 1], [1, 1], [1, 0]]).astype(float)
         box *= scale_to_or
@@ -101,12 +101,12 @@ def save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_t
     # simple_segm_img = seg_np.copy().to(float) / 255
     simple_segm_img = seg_np
 
-    if segm_img:
+    if segm_img is not None:
         cv.imwrite(f"{simple_path_prefix}_segmentation_original.png", segm_img)
 
     cv.imwrite(f"{simple_path_prefix}_segmentation.png", simple_segm_img)
     img_read = cv.imread(f"{simple_path_prefix}_segmentation.png")
-    assert img_read == simple_segm_img
+    # assert img_read == simple_segm_img
 
     write_toml(segments_info, f"{simple_path_prefix}_data.toml")
 

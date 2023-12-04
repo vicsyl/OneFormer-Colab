@@ -164,10 +164,10 @@ def compute():
 
         print(f"path: {img_path}")
         img = cv2.imread(img_path)
-        or_size = img.size[:2]
+        or_size = img.shape[:2]
 
         img = imutils.resize(img, width=640)
-        size = img.size[:2]
+        size = img.shape[:2]
 
         scale_to_or_0 = float(or_size[0]) / float(size[0])
         scale_to_or_1 = float(or_size[1]) / float(size[1])
@@ -178,7 +178,8 @@ def compute():
         assert np.isclose(scale_to_or_0, scale_to_or_1)
 
         predictions, out = TASK_INFER[task](img, predictor, metadata)
-        segm_img = out.get_image()[:, :, ::-1]
+#        segm_img = out.get_image()[:, :, ::-1]
+        segm_img = out.get_image()
         panoptic_seg, segments_info = predictions["panoptic_seg"]
         assumed_prefix_l = len("./download/3dod/Training/")
         simple_path_prefix = f"{args.out_data_root}/{img_path[assumed_prefix_l:]}"[:-4]

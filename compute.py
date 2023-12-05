@@ -6,6 +6,7 @@ import time
 
 from common.data_parsing import get_cached_data, ConfStatic, save
 from data_save import save_data
+from fake_compute import scene_args
 
 sys.path.insert(0, os.path.abspath('../detectron2'))
 #sys.path.insert(0, os.path.abspath('./demo'))
@@ -130,20 +131,6 @@ else:
     subprocess.run('wget https://shi-labs.com/projects/oneformer/ade20k/250_16_swin_l_oneformer_ade20k_160k.pth', shell=True)
   predictor, metadata = setup_modules("ade20k", "250_16_swin_l_oneformer_ade20k_160k.pth", use_swin)
 print(f"METADATA: {metadata}")
-
-
-def scene_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--out_data_root",
-        default="./out_data",
-        help="output folder"
-    )
-    parser.add_argument("--conf_base_path", type=str, default=None)
-    parser.add_argument("--cache_every_other", type=int, default=10000)
-    args = parser.parse_args()
-    print(f"Args: {args}")
-    return args
 
 
 BOXES_2D_KEY = "segmented_boxes_2d"

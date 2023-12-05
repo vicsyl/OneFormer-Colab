@@ -1,6 +1,7 @@
 common
 download
 out_data
+configs/*.toml
 *_video
 *_video.py
 extras/

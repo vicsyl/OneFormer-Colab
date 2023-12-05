@@ -238,11 +238,11 @@ def compute():
         # a) read imgs, segmentation, segm_info
         # i) infer the data (possibly read the data and assert ==)
         # ii) read the data
-        segments_info, segmemtation_map, segm_contrast_img, segm_vis_img, original_img = \
+        segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
             get_imgs(config_entry, args.out_data_root)
 
         # b) scale (merge?)
-        scale = get_scale(original_img, segmemtation_map)
+        scale = get_scale(original_img, segmentation_map)
 
         # c) all boxes/x_is...
         categories, \
@@ -252,7 +252,7 @@ def compute():
         x_i_int_unscaled, \
         x_i_int, \
         x_i_int_out_unscaled, \
-        x_i_int_out = get_boxes(config_entry, segments_info, segmemtation_map, scale)
+        x_i_int_out = get_boxes(config_entry, segments_info, segmentation_map, scale)
 
         # d) visualization
         path_pref = get_simple_path_prefix(config_entry, args.out_data_root)

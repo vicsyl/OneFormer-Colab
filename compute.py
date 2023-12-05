@@ -137,9 +137,48 @@ BOXES_2D_KEY = "segmented_boxes_2d"
 WIDTHS_HEIGHTS_KEY = "segmented_wh"
 
 
-def compute():
+def infer(config_entry, out_data_root):
 
     task = "panoptic"
+    img_path = config_entry['orig_file_path']
+
+    # hack - ../../download/... -> ./download/.
+    img_path = img_path[4:]
+
+    print(f"path: {img_path}")
+    original_img = cv2.imread(img_path)
+    or_size = original_img.shape[:2]
+
+    original_img = imutils.resize(original_img, width=640)
+    size = original_img.shape[:2]
+
+    scale_to_or_0 = float(or_size[0]) / float(size[0])
+    scale_to_or_1 = float(or_size[1]) / float(size[1])
+    print(f"scale_to_or_0: {scale_to_or_0}")
+    print(f"scale_to_or_1: {scale_to_or_1}")
+
+    # MAY not hold actually
+    assert np.isclose(scale_to_or_0, scale_to_or_1)
+
+    predictions, out = TASK_INFER[task](original_img, predictor, metadata)
+    segm_vis_img = out.get_image()
+    segmentation_map, segments_info = predictions["panoptic_seg"]
+
+    assumed_prefix_l = len("./download/3dod/Training/")
+    simple_path_prefix = f"{out_data_root}/{img_path[assumed_prefix_l:]}"[:-4]
+
+    segmentation_map = segmentation_map.cpu().numpy()
+    segments_info = save_data(simple_path_prefix, segmentation_map, segments_info, scale_to_or_0, segm_vis_img)
+
+    contrast = 230 // segmentation_map.max()
+    segm_contrast_img = segmentation_map * contrast
+    segm_contrast_img[segm_contrast_img == 0] = 255
+
+    return segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img
+
+
+def compute():
+
     args = scene_args()
 
     # toml_conf = read_toml(args.conf_base_path)
@@ -150,44 +189,17 @@ def compute():
                                                                                format_suffix=ConfStatic.toml_suffix,
                                                                                out_log=True)
 
-    for e_i, e in enumerate(data_entries):
+    for e_i, config_entry in enumerate(data_entries):
 
-        if e.__contains__(BOXES_2D_KEY):
+        if config_entry.__contains__(BOXES_2D_KEY):
             continue
         else:
             ready_entries += 1
             # if ready_entries > 10:
             #     break
 
-        img_path = e['orig_file_path']
-
-        # hack - ../../download/... -> ./download/.
-        img_path = img_path[4:]
-
-        print(f"path: {img_path}")
-        img = cv2.imread(img_path)
-        or_size = img.shape[:2]
-
-        img = imutils.resize(img, width=640)
-        size = img.shape[:2]
-
-        scale_to_or_0 = float(or_size[0]) / float(size[0])
-        scale_to_or_1 = float(or_size[1]) / float(size[1])
-        print(f"scale_to_or_0: {scale_to_or_0}")
-        print(f"scale_to_or_1: {scale_to_or_1}")
-
-        # MAY not hold actually
-        assert np.isclose(scale_to_or_0, scale_to_or_1)
-
-        predictions, out = TASK_INFER[task](img, predictor, metadata)
-        segm_img = out.get_image()
-        panoptic_seg, segments_info = predictions["panoptic_seg"]
-
-        assumed_prefix_l = len("./download/3dod/Training/")
-        simple_path_prefix = f"{args.out_data_root}/{img_path[assumed_prefix_l:]}"[:-4]
-
-        panoptic_seg = panoptic_seg.cpu().numpy()
-        segments_info = save_data(simple_path_prefix, panoptic_seg, segments_info, scale_to_or_0, segm_img)
+        segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
+            infer(config_entry, args.out_data_root)
 
         if ready_entries % args.cache_every_other == 0:
             sp_file_path = f"{args.conf_base_path}_sp={ready_entries}{args.format_suffix}"

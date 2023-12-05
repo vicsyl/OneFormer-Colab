@@ -2,7 +2,7 @@ import time
 
 from pyquaternion import Quaternion
 
-from data_parsing import save, get_cached_data, ConfStatic, read_toml
+from common.data_parsing import save, get_cached_data, ConfStatic, read_toml
 from data_save import save_data
 import cv2 as cv
 import numpy as np

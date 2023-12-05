@@ -21,6 +21,8 @@ def scene_args():
         default="./out_data",
         help="output folder"
     )
+    parser.add_argument("--infer", type=bool, default=True)
+    parser.add_argument("--infer_test", type=bool, default=False)
     parser.add_argument("--max_entries", type=int, default=None)
     parser.add_argument("--conf_base_path", type=str, default=None)
     parser.add_argument("--cache_every_other", type=int, default=5000)
@@ -238,8 +240,22 @@ def compute():
         # a) read imgs, segmentation, segm_info
         # i) infer the data (possibly read the data and assert ==)
         # ii) read the data
-        segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
-            get_imgs(config_entry, args.out_data_root)
+
+        if args.infer:
+            from infer import infer
+            segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
+                infer(config_entry, args.out_data_root)
+            if args.infer_test:
+                segments_info2, segmentation_map2, segm_contrast_img2, segm_vis_img2, original_img2 = \
+                    get_imgs(config_entry, args.out_data_root)
+                assert segments_info == segments_info2
+                assert np.all(segmentation_map == segmentation_map2)
+                assert np.all(segm_contrast_img == segm_contrast_img2)
+                assert np.all(segm_vis_img == segm_vis_img2)
+                assert np.all(original_img == original_img2)
+        else:
+            segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
+                get_imgs(config_entry, args.out_data_root)
 
         # b) scale (merge?)
         scale = get_scale(original_img, segmentation_map)

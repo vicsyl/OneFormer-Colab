@@ -1,6 +1,6 @@
 import time
 
-from sympy import Quaternion
+from pyquaternion import Quaternion
 
 from data_parsing import save, get_cached_data, ConfStatic, read_toml
 from data_save import save_data

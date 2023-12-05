@@ -1,14 +1,15 @@
 # Setup detectron2 logger
 import argparse
-import glob
-import sys, os
+import os
+import sys
+import time
 
-from data_save import save_data, read_toml
+from common.data_parsing import get_cached_data, ConfStatic, save
+from data_save import save_data
 
 sys.path.insert(0, os.path.abspath('../detectron2'))
 #sys.path.insert(0, os.path.abspath('./demo'))
 
-import detectron2
 from detectron2.utils.logger import setup_logger
 setup_logger()
 setup_logger(name="oneformer")
@@ -128,37 +129,51 @@ else:
   if not os.path.exists("250_16_swin_l_oneformer_ade20k_160k.pth"):
     subprocess.run('wget https://shi-labs.com/projects/oneformer/ade20k/250_16_swin_l_oneformer_ade20k_160k.pth', shell=True)
   predictor, metadata = setup_modules("ade20k", "250_16_swin_l_oneformer_ade20k_160k.pth", use_swin)
+print(f"METADATA: {metadata}")
 
 
 def scene_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--data_root",
-        default="./threedod/download/3dod/Training/",
-        help="input folder with ./scene_id"
-             "extracted by unzipping scene_id.tar.gz"
-    )
-    parser.add_argument(
         "--out_data_root",
         default="./out_data",
         help="output folder"
     )
-    parser.add_argument("--min_scenes", type=int, default=0)
-    parser.add_argument("--max_scenes", type=int, default=None)
-    parser.add_argument("--conf_path", type=str, default=None)
+    parser.add_argument("--conf_base_path", type=str, default=None)
+    parser.add_argument("--cache_every_other", type=int, default=10000)
     args = parser.parse_args()
+    print(f"Args: {args}")
     return args
+
+
+BOXES_2D_KEY = "segmented_boxes_2d"
+WIDTHS_HEIGHTS_KEY = "segmented_wh"
 
 
 def compute():
 
     task = "panoptic"
-
     args = scene_args()
-    toml_conf = read_toml(args.conf_path)
-    for e_i, e in enumerate(toml_conf['metropolis_data']):
+
+    # toml_conf = read_toml(args.conf_base_path)
+    # configs/ARKitScenes=obj=2_max=100_sp=10.toml => conf_base_path = configs/ARKitScenes=obj=2_max=100
+
+    start_time = time.time()
+    data_entries, ready_entries, min_counts_map, config_read = get_cached_data(args.conf_base_path,
+                                                                               format_suffix=ConfStatic.toml_suffix,
+                                                                               out_log=True)
+
+    for e_i, e in enumerate(data_entries):
+
+        if e.__contains__(BOXES_2D_KEY):
+            continue
+        else:
+            ready_entries += 1
+            # if ready_entries > 10:
+            #     break
 
         img_path = e['orig_file_path']
+
         # hack - ../../download/... -> ./download/.
         img_path = img_path[4:]
 
@@ -174,16 +189,37 @@ def compute():
         print(f"scale_to_or_0: {scale_to_or_0}")
         print(f"scale_to_or_1: {scale_to_or_1}")
 
-        # TODO most likely will be removed
+        # MAY not hold actually
         assert np.isclose(scale_to_or_0, scale_to_or_1)
 
         predictions, out = TASK_INFER[task](img, predictor, metadata)
-#        segm_img = out.get_image()[:, :, ::-1]
         segm_img = out.get_image()
         panoptic_seg, segments_info = predictions["panoptic_seg"]
+
         assumed_prefix_l = len("./download/3dod/Training/")
         simple_path_prefix = f"{args.out_data_root}/{img_path[assumed_prefix_l:]}"[:-4]
-        save_data(simple_path_prefix, img_path, panoptic_seg, segments_info, scale_to_or_0, segm_img)
+
+        panoptic_seg = panoptic_seg.cpu().numpy()
+        segments_info = save_data(simple_path_prefix, panoptic_seg, segments_info, scale_to_or_0, segm_img)
+
+        if ready_entries % args.cache_every_other == 0:
+            sp_file_path = f"{args.conf_base_path}_sp={ready_entries}{args.format_suffix}"
+            save(sp_file_path,
+                 data_entries,
+                 objects_counts_map={},
+                 at_least_objects_counts_map=min_counts_map,
+                 conf_attribute_map=config_read)
+
+    print("Saving the final file")
+    elapased = time.time() - start_time
+    print(f"Total time: %f sec" % elapased)
+
+    sp_file_path = f"{args.conf_base_path}_sp={ready_entries}{args.format_suffix}"
+    save(sp_file_path,
+         data_entries,
+         objects_counts_map={},
+         at_least_objects_counts_map=min_counts_map,
+         conf_attribute_map=config_read)
 
 
 if __name__ == "__main__":

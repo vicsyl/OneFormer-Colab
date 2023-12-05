@@ -6,7 +6,7 @@ import time
 
 from common.data_parsing import get_cached_data, ConfStatic, save
 from data_save import save_data
-from fake_compute import scene_args
+from set_args import scene_args
 
 sys.path.insert(0, os.path.abspath('../detectron2'))
 #sys.path.insert(0, os.path.abspath('./demo'))

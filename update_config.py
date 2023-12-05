@@ -11,26 +11,7 @@ from common.common_transforms import project_metropolis
 from common.data_parsing import save, get_cached_data, ConfStatic, read_toml
 from common.vanishing_point import change_x_3d_arkit, change_r_arkit
 from common.fitting import fit_min_area_rect
-
-
-def scene_args():
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--out_data_root",
-        default="./out_data",
-        help="output folder"
-    )
-    parser.add_argument("--infer", type=bool, default=True)
-    parser.add_argument("--infer_test", type=bool, default=False)
-    parser.add_argument("--max_entries", type=int, default=None)
-    parser.add_argument("--conf_base_path", type=str, default=None)
-    parser.add_argument("--cache_every_other", type=int, default=5000)
-    parser.add_argument("--format_suffix", type=str, default=ConfStatic.toml_suffix)
-    args = parser.parse_args()
-    print(f"Args: {args}")
-    return args
-
+from set_args import scene_args
 
 BOXES_2D_KEY = "segmented_boxes_2d_1"
 WIDTHS_HEIGHTS_KEY = "segmented_wh"

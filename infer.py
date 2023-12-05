@@ -149,8 +149,8 @@ def infer(config_entry, out_data_root):
     original_img = cv2.imread(img_path)
     or_size = original_img.shape[:2]
 
-    original_img = imutils.resize(original_img, width=640)
-    size = original_img.shape[:2]
+    resized_img = imutils.resize(original_img, width=640)
+    size = resized_img.shape[:2]
 
     scale_to_or_0 = float(or_size[0]) / float(size[0])
     scale_to_or_1 = float(or_size[1]) / float(size[1])
@@ -160,7 +160,7 @@ def infer(config_entry, out_data_root):
     # MAY not hold actually
     assert np.isclose(scale_to_or_0, scale_to_or_1)
 
-    predictions, out = TASK_INFER[task](original_img, predictor, metadata)
+    predictions, out = TASK_INFER[task](resized_img, predictor, metadata)
     segm_vis_img = out.get_image()
     segmentation_map, segments_info = predictions["panoptic_seg"]
 

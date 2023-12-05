@@ -177,7 +177,7 @@ def infer(config_entry, out_data_root):
     return segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img
 
 
-def compute():
+def loop_compute():
 
     args = scene_args()
 
@@ -222,4 +222,4 @@ def compute():
 
 
 if __name__ == "__main__":
-    compute()
+    loop_compute()

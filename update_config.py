@@ -238,7 +238,7 @@ def get_boxes_classes(config_entry,
     first_ds_category_id = {}
     for i, name in enumerate(config_entry["names"]):
         if first_ds_category_id.__contains__(name):
-            object_infos[first_ds_category_id(name)] = None
+            object_infos[first_ds_category_id[name]] = None
             object_infos.append(None)
             continue
         first_ds_category_id[name] = i

@@ -11,6 +11,8 @@ def scene_args():
         default="./out_data",
         help="output folder"
     )
+    # hack, this will be updated ...
+    parser.add_argument('--save', action='store_true', default=True)
     parser.add_argument('--show', action='store_true', default=False)
     parser.add_argument('--no-show', dest='infer', action='store_false')
     parser.add_argument('--infer', action='store_true', default=True)

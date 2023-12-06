@@ -166,13 +166,13 @@ def get_boxes(config_entry, segments_info, segmentation_map, scale):
            x_i_int_out_ret
 
 
-def visualize_image(img_to_show,
+def visualize_image(args,
+                    img_to_show,
                     x_i_proper,
                     x_i_out,
                     rectangles,
                     title=None,
-                    save_path=None,
-                    show=False):
+                    save_path=None):
     rectangles = [r for r in rectangles if len(r) > 0]
     rectangles = np.array(rectangles)
     _, ax = plt.subplots(1, 1)
@@ -188,9 +188,9 @@ def visualize_image(img_to_show,
         ax.plot(np.hstack((rect[:, 0], rect[0, 0])), np.hstack((rect[:, 1], rect[0, 1])), "r-.", linewidth=2)
 
     plt.title(title, fontsize="x-small")
-    if save_path:
+    if args.save and save_path:
         plt.savefig(save_path) #, bbox_inches="tight")
-    if show:
+    if args.show:
         plt.show()
     plt.close()
 
@@ -322,25 +322,25 @@ def compute_boxes_based_on_classes(config_entry,
     s = f"segm. categories: {segmentation_categories}"
     title += split_str(s, max_row_length=130)
     # title += str(boxes_unscaled)
-    visualize_image(segm_contrast_img,
+    visualize_image(args,
+                    segm_contrast_img,
                     [],
                     [],
                     boxes_unscaled,
                     title=title,
-                    save_path=f"{path_pref}_segmentation_contrast_boxes_classes.png",
-                    show=args.show)
-    # visualize_image(segm_vis_img,
+                    save_path=f"{path_pref}_segmentation_contrast_boxes_classes.png")
+    # visualize_image(args,
+    #                 segm_vis_img,
     #                 [],
     #                 [],
     #                 boxes_unscaled,
-    #                 title=title,
-    #                 show=args.show)
-    # visualize_image(original_img,
+    #                 title=title)
+    # visualize_image(args,
+    #                 original_img,
     #                 [],
     #                 [],
     #                 boxes_original,
-    #                 title=title,
-    #                 show=args.show)
+    #                 title=title)
 
     # write to orig config
     config_entry[BOXES_2D_KEY_CLASSES] = boxes_original
@@ -375,25 +375,25 @@ def compute_boxes_based_on_x_gt(config_entry,
     s = f"segm. categories: {segmentation_categories}"
     title += split_str(s, max_row_length=130)
     # title += str(boxes_unscaled)
-    visualize_image(segm_contrast_img,
+    visualize_image(args,
+                    segm_contrast_img,
                     x_i_int_unscaled,
                     x_i_int_out_unscaled,
                     boxes_unscaled,
                     title=title,
-                    save_path=f"{path_pref}_segmentation_contrast_boxes_x_gt.png",
-                    show=args.show)
-    # visualize_image(segm_vis_img,
+                    save_path=f"{path_pref}_segmentation_contrast_boxes_x_gt.png")
+    # visualize_image(args,
+    #                 segm_vis_img,
     #                 x_i_int_unscaled,
     #                 x_i_int_out_unscaled,
     #                 boxes_unscaled,
-    #                 title=title,
-    #                 show=args.show)
-    # visualize_image(original_img,
+    #                 title=title)
+    # visualize_image(args,
+    #                 original_img,
     #                 x_i_int,
     #                 x_i_int_out,
     #                 boxes_original,
-    #                 title=title,
-    #                 show=args.show)
+    #                 title=title)
 
     # write to orig config
     config_entry[BOXES_2D_KEY_PROJECTION] = boxes_original
@@ -410,6 +410,8 @@ def compute():
 
     ready_entries = or_ready_entries
     for e_i, config_entry in enumerate(data_entries):
+
+        args.save = (2755 < e_i < 5000)
 
         if config_entry.__contains__(BOXES_2D_KEY_PROJECTION) and config_entry.__contains__(BOXES_2D_KEY_CLASSES):
         # if config_entry.__contains__(BOXES_2D_KEY_CLASSES):
@@ -441,8 +443,15 @@ def compute():
                                        original_img,
                                        args)
 
+        if ready_entries % 1000 == 0:
+            elapased = time.time() - start_time
+            print(f"ready_entries: {ready_entries}")
+            print(f"time elapsed: %f sec" % elapased)
+
         if ready_entries % args.cache_every_other == 0 and ready_entries != or_ready_entries:
             sp_file_path = f"{args.conf_base_path}_sp={ready_entries}"
+            # FIXME: there is still a problem
+            #   for cache_every_other == 1000 it will first save with 1001 entries ready
             save(f"{sp_file_path}{args.format_suffix}",
                  data_entries,
                  objects_counts_map={},

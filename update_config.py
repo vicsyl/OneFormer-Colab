@@ -145,6 +145,7 @@ def get_boxes(config_entry, segments_info, segmentation_map, scale):
         categories.append(category)
 
         pixels_to_fit = np.array(np.where(segmentation_map == obj_idx)).T
+        pixels_to_fit = pixels_to_fit[:, [1, 0]]
         box = fit_min_area_rect(pixels_to_fit)
         boxes_unscaled.append(box.tolist().copy())
         box *= scale
@@ -184,7 +185,7 @@ def visualize_image(img_to_show,
     if len(x_i_out) > 0:
         ax.plot(x_i_out[:, 0], x_i_out[:, 1], "rx", markersize="10", markeredgewidth=2)
     for rect in rectangles:
-        ax.plot(np.hstack((rect[:, 1], rect[0, 1])), np.hstack((rect[:, 0], rect[0, 0])), "r-.", linewidth=2)
+        ax.plot(np.hstack((rect[:, 0], rect[0, 0])), np.hstack((rect[:, 1], rect[0, 1])), "r-.", linewidth=2)
 
     plt.title(title, fontsize="x-small")
     if save_path:
@@ -272,6 +273,7 @@ def get_boxes_classes(config_entry,
             continue
         sid = object_info["id"]
         pixels_to_fit = np.array(np.where(segmentation_map == sid)).T
+        pixels_to_fit = pixels_to_fit[:, [1, 0]]
         box = fit_min_area_rect(pixels_to_fit)
         boxes_unscaled.append(box.tolist().copy())
         box *= scale
@@ -319,6 +321,7 @@ def compute_boxes_based_on_classes(config_entry,
     segmentation_categories = [get_object_info_category(oi) for oi in segments_info["objects"]]
     s = f"segm. categories: {segmentation_categories}"
     title += split_str(s, max_row_length=130)
+    # title += str(boxes_unscaled)
     visualize_image(segm_contrast_img,
                     [],
                     [],
@@ -371,7 +374,7 @@ def compute_boxes_based_on_x_gt(config_entry,
     segmentation_categories = [get_object_info_category(oi) for oi in segments_info["objects"]]
     s = f"segm. categories: {segmentation_categories}"
     title += split_str(s, max_row_length=130)
-
+    # title += str(boxes_unscaled)
     visualize_image(segm_contrast_img,
                     x_i_int_unscaled,
                     x_i_int_out_unscaled,

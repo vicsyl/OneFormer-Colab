@@ -145,7 +145,7 @@ def infer_and_save(config_entry, out_data_root):
     # hack - ../../download/... -> ./download/.
     img_path = img_path[4:]
 
-    print(f"path: {img_path}")
+    # print(f"path: {img_path}")
     original_img = cv2.imread(img_path)
     or_size = original_img.shape[:2]
 
@@ -154,8 +154,8 @@ def infer_and_save(config_entry, out_data_root):
 
     scale_to_or_0 = float(or_size[0]) / float(size[0])
     scale_to_or_1 = float(or_size[1]) / float(size[1])
-    print(f"scale_to_or_0: {scale_to_or_0}")
-    print(f"scale_to_or_1: {scale_to_or_1}")
+    # print(f"scale_to_or_0: {scale_to_or_0}")
+    # print(f"scale_to_or_1: {scale_to_or_1}")
 
     # MAY not hold actually
     assert np.isclose(scale_to_or_0, scale_to_or_1)

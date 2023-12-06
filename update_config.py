@@ -13,7 +13,7 @@ from common.vanishing_point import change_x_3d_arkit, change_r_arkit
 from common.fitting import fit_min_area_rect
 from set_args import scene_args
 
-BOXES_2D_KEY = "segmented_boxes_2d_1"
+BOXES_2D_KEY_PROJECTION = "segmented_boxes_2d_projection"
 WIDTHS_HEIGHTS_KEY = "segmented_wh"
 
 
@@ -174,7 +174,8 @@ def visualize_image(img_to_show,
                     x_i_out,
                     rectangles,
                     title=None,
-                    save_path=None):
+                    save_path=None,
+                    show=False):
     rectangles = [r for r in rectangles if len(r) > 0]
     rectangles = np.array(rectangles)
     _, ax = plt.subplots(1, 1)
@@ -190,15 +191,80 @@ def visualize_image(img_to_show,
     plt.title(title)
     if save_path:
         plt.savefig(save_path, bbox_inches="tight")
-    show = True
     if show:
         plt.show()
     plt.close()
 
 
+def get_or_infer(args, config_entry):
+
+    if args.infer:
+        from infer import infer_and_save
+        segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
+            infer_and_save(config_entry, args.out_data_root)
+        if args.infer_test:
+            segments_info2, segmentation_map2, segm_contrast_img2, segm_vis_img2, original_img2 = \
+                get_imgs(config_entry, args.out_data_root)
+            assert segments_info == segments_info2
+            assert np.all(segmentation_map == segmentation_map2)
+            assert np.all(segm_contrast_img == segm_contrast_img2)
+            assert np.all(segm_vis_img == segm_vis_img2)
+            assert np.all(original_img == original_img2)
+    else:
+        segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
+            get_imgs(config_entry, args.out_data_root)
+
+    return segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img
+
+
+def compute_boxes_based_on_x_gt(config_entry,
+                                segments_info,
+                                segmentation_map,
+                                segm_contrast_img,
+                                segm_vis_img,
+                                original_img,
+                                out_data_root):
+
+    # scale (merge?)
+    scale = get_scale(original_img, segmentation_map)
+
+    # all boxes/x_is...
+    categories, \
+    ds_categories, \
+    boxes_original, \
+    boxes_unscaled, \
+    x_i_int_unscaled, \
+    x_i_int, \
+    x_i_int_out_unscaled, \
+    x_i_int_out = get_boxes(config_entry, segments_info, segmentation_map, scale)
+
+    # visualization
+    path_pref = get_simple_path_prefix(config_entry, out_data_root)
+    title = ", ".join([f"{dsc}->{c}" for dsc, c in zip(ds_categories, categories)])
+    title += f"\n ds categories: {ds_categories}"
+    visualize_image(segm_contrast_img,
+                    x_i_int_unscaled,
+                    x_i_int_out_unscaled,
+                    boxes_unscaled,
+                    title=title,
+                    save_path=f"{path_pref}_segmentation_contrast_boxes_x_gt.png")
+    # visualize_image(segm_vis_img,
+    #                 x_i_int_unscaled,
+    #                 x_i_int_out_unscaled,
+    #                 boxes_unscaled,
+    #                 title=title)
+    # visualize_image(original_img,
+    #                 x_i_int,
+    #                 x_i_int_out,
+    #                 boxes_original,
+    #                 title=title)
+
+    # write to orig config
+    config_entry[BOXES_2D_KEY_PROJECTION] = boxes_original
+
+
 def compute():
 
-    task = "panoptic"
     args = scene_args()
 
     start_time = time.time()
@@ -208,73 +274,27 @@ def compute():
 
     for e_i, config_entry in enumerate(data_entries):
 
-        if config_entry.__contains__(BOXES_2D_KEY):
+        if config_entry.__contains__(BOXES_2D_KEY_PROJECTION):
             continue
         else:
             ready_entries += 1
             if args.max_entries and ready_entries > args.max_entries:
                 break
 
-        # START FUNCTION
-        # segments_info, segmentation, scale = fc(img_path, simple_path_prefix)
+        # get or infer
+        segments_info, \
+        segmentation_map, \
+        segm_contrast_img, \
+        segm_vis_img, \
+        original_img = get_or_infer(args, config_entry)
 
-        # a) read imgs, segmentation, segm_info
-        # i) infer the data (possibly read the data and assert ==)
-        # ii) read the data
-
-        if args.infer:
-            from infer import infer
-            segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
-                infer(config_entry, args.out_data_root)
-            if args.infer_test:
-                segments_info2, segmentation_map2, segm_contrast_img2, segm_vis_img2, original_img2 = \
-                    get_imgs(config_entry, args.out_data_root)
-                assert segments_info == segments_info2
-                assert np.all(segmentation_map == segmentation_map2)
-                assert np.all(segm_contrast_img == segm_contrast_img2)
-                assert np.all(segm_vis_img == segm_vis_img2)
-                assert np.all(original_img == original_img2)
-        else:
-            segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
-                get_imgs(config_entry, args.out_data_root)
-
-        # b) scale (merge?)
-        scale = get_scale(original_img, segmentation_map)
-
-        # c) all boxes/x_is...
-        categories, \
-        ds_categories, \
-        boxes_original, \
-        boxes_unscaled, \
-        x_i_int_unscaled, \
-        x_i_int, \
-        x_i_int_out_unscaled, \
-        x_i_int_out = get_boxes(config_entry, segments_info, segmentation_map, scale)
-
-        # d) visualization
-        path_pref = get_simple_path_prefix(config_entry, args.out_data_root)
-        title = ", ".join([f"{dsc}->{c}" for dsc, c in zip(ds_categories, categories)])
-        title += f"\n ds categories: {ds_categories}"
-        visualize_image(segm_contrast_img,
-                        x_i_int_unscaled,
-                        x_i_int_out_unscaled,
-                        boxes_unscaled,
-                        title=title,
-                        save_path=f"{path_pref}_segmentation_contrast_boxes.png")
-        visualize_image(segm_vis_img,
-                        x_i_int_unscaled,
-                        x_i_int_out_unscaled,
-                        boxes_unscaled,
-                        title=title)
-        # visualize_image(original_img,
-        #                 x_i_int,
-        #                 x_i_int_out,
-        #                 boxes_original,
-        #                 title=title)
-        # END FUNCTION
-
-        # e) write to orig config (anything else?)
-        config_entry[BOXES_2D_KEY] = boxes_original
+        compute_boxes_based_on_x_gt(config_entry,
+                                    segments_info,
+                                    segmentation_map,
+                                    segm_contrast_img,
+                                    segm_vis_img,
+                                    original_img,
+                                    args.out_data_root)
 
         if ready_entries % args.cache_every_other == 0:
             sp_file_path = f"{args.conf_base_path}_sp={ready_entries}"

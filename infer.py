@@ -137,7 +137,7 @@ BOXES_2D_KEY = "segmented_boxes_2d"
 WIDTHS_HEIGHTS_KEY = "segmented_wh"
 
 
-def infer(config_entry, out_data_root):
+def infer_and_save(config_entry, out_data_root):
 
     task = "panoptic"
     img_path = config_entry['orig_file_path']
@@ -180,10 +180,6 @@ def infer(config_entry, out_data_root):
 def loop_compute():
 
     args = scene_args()
-
-    # toml_conf = read_toml(args.conf_base_path)
-    # configs/ARKitScenes=obj=2_max=100_sp=10.toml => conf_base_path = configs/ARKitScenes=obj=2_max=100
-
     start_time = time.time()
     data_entries, ready_entries, min_counts_map, config_read = get_cached_data(args.conf_base_path,
                                                                                format_suffix=ConfStatic.toml_suffix,
@@ -195,30 +191,11 @@ def loop_compute():
             continue
         else:
             ready_entries += 1
-            # if ready_entries > 10:
-            #     break
 
-        segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img = \
-            infer(config_entry, args.out_data_root)
+        _ = infer_and_save(config_entry, args.out_data_root)
 
-        if ready_entries % args.cache_every_other == 0:
-            sp_file_path = f"{args.conf_base_path}_sp={ready_entries}{args.format_suffix}"
-            save(sp_file_path,
-                 data_entries,
-                 objects_counts_map={},
-                 at_least_objects_counts_map=min_counts_map,
-                 conf_attribute_map=config_read)
-
-    print("Saving the final file")
     elapased = time.time() - start_time
     print(f"Total time: %f sec" % elapased)
-
-    sp_file_path = f"{args.conf_base_path}_sp={ready_entries}{args.format_suffix}"
-    save(sp_file_path,
-         data_entries,
-         objects_counts_map={},
-         at_least_objects_counts_map=min_counts_map,
-         conf_attribute_map=config_read)
 
 
 if __name__ == "__main__":

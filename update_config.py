@@ -411,7 +411,7 @@ def compute():
     ready_entries = or_ready_entries
     for e_i, config_entry in enumerate(data_entries):
 
-        args.save = (2755 < e_i < 5000)
+        args.save = (3000 < e_i < 5000)
 
         if config_entry.__contains__(BOXES_2D_KEY_PROJECTION) and config_entry.__contains__(BOXES_2D_KEY_CLASSES):
         # if config_entry.__contains__(BOXES_2D_KEY_CLASSES):

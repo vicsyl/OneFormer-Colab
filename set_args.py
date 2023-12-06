@@ -11,6 +11,8 @@ def scene_args():
         default="./out_data",
         help="output folder"
     )
+    parser.add_argument('--show', action='store_true', default=False)
+    parser.add_argument('--no-show', dest='infer', action='store_false')
     parser.add_argument('--infer', action='store_true', default=True)
     parser.add_argument('--no-infer', dest='infer', action='store_false')
     parser.add_argument('--infer_test', action='store_true', default=False)

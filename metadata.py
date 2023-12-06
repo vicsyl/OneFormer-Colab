@@ -167,9 +167,20 @@ arkit_class_names_map = {
     "stool": set(["stool"]),
     "chair": set(["chair", "armchair", "swivel chair", "seat"]),
     "table": set(["pool table, billiard table, snooker table", "coffee table", "table", "desk"]),
-    "tv_monitor": set(["monitor", "crt screen"]),
+    "tv_monitor": set(["monitor", "crt screen", "computer"]),
     "sofa": set(["sofa"]),
 }
+
+
+def get_reverse_map():
+    ret = {}
+    for arkit_c, sem_classes in arkit_class_names_map.items():
+        for sem_class in sem_classes:
+            ret[sem_class] = arkit_c
+    return ret
+
+
+reverse_arkit_class_names_map = get_reverse_map()
 
 
 def test_arkit_class_names_map():

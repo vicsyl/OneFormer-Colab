@@ -1,20 +1,20 @@
-import argparse
 import time
+from collections import defaultdict
 
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
 from pyquaternion import Quaternion
 
-from metadata import *
 from common.common_transforms import project_metropolis
 from common.data_parsing import save, get_cached_data, ConfStatic, read_toml
-from common.vanishing_point import change_x_3d_arkit, change_r_arkit
 from common.fitting import fit_min_area_rect
+from common.vanishing_point import change_x_3d_arkit, change_r_arkit
+from metadata import *
 from set_args import scene_args
 
 BOXES_2D_KEY_PROJECTION = "segmented_boxes_2d_projection"
-WIDTHS_HEIGHTS_KEY = "segmented_wh"
+BOXES_2D_KEY_CLASSES = "segmented_boxes_2d_classes"
 
 
 def simple_show_img(img_l, title=None):
@@ -25,9 +25,9 @@ def simple_show_img(img_l, title=None):
     plt.close()
 
 
-def get_scale(original_img, segmemtation_map):
+def get_scale(original_img, segmentation_map):
     or_size = original_img.shape[:2]
-    size = segmemtation_map.shape[:2]
+    size = segmentation_map.shape[:2]
     scale = float(or_size[0]) / float(size[0])
     scale2 = float(or_size[1]) / float(size[1])
     # MAY not hold actually
@@ -40,7 +40,7 @@ def get_simple_path_prefix(config_entry, out_data_root):
     img_path = config_entry['orig_file_path']
     # hack - ../../download/... -> ./download/.
     img_path = img_path[4:]
-    print(f"path: {img_path}")
+    # print(f"path: {img_path}")
     assumed_prefix_l = len("./download/3dod/Training/")
     return f"{out_data_root}/{img_path[assumed_prefix_l:]}"[:-4]
 
@@ -78,7 +78,17 @@ if_thing_stuff_maps = {
 }
 
 
-def get_boxes(config_entry, segments_info, segmemtation_map, scale):
+def get_object_info_category(object_info):
+    # isthing = object_info["isthing"]
+    # well it is just using stuff IMHO
+    id_map, classes_map = if_thing_stuff_maps[False]
+    id = id_map[object_info["category_id"]]
+    assert id == object_info["category_id"]
+    category = classes_map[id]
+    return category
+
+
+def get_boxes(config_entry, segments_info, segmentation_map, scale):
 
     K = np.array(config_entry['K'].copy())
     R_cs_l = config_entry['R_cs'].copy()
@@ -95,7 +105,6 @@ def get_boxes(config_entry, segments_info, segmemtation_map, scale):
 
     # even missing for these
     categories = []
-    ds_categories = []
     boxes_original = []
     boxes_unscaled = []
     # split these
@@ -112,14 +121,11 @@ def get_boxes(config_entry, segments_info, segmemtation_map, scale):
             x_i_int_out_ret.append(x_i_int[i])
             categories.append("not found")
 
-        ds_name = config_entry['names'][i]
-        ds_categories.append(ds_name)
-
-        if coord_x_y[0] < 0 or coord_x_y[0] >= segmemtation_map.shape[1] or \
-                coord_x_y[1] < 0 or coord_x_y[1] >= segmemtation_map.shape[0]:
+        if coord_x_y[0] < 0 or coord_x_y[0] >= segmentation_map.shape[1] or \
+                coord_x_y[1] < 0 or coord_x_y[1] >= segmentation_map.shape[0]:
             clean()
             continue
-        obj_idx = segmemtation_map[coord_x_y[1], coord_x_y[0]]
+        obj_idx = segmentation_map[coord_x_y[1], coord_x_y[0]]
         if obj_idx == 0:
             clean()
             continue
@@ -132,35 +138,25 @@ def get_boxes(config_entry, segments_info, segmemtation_map, scale):
         # 'category_id': 0,
         # 'area': 112475.0,
         # 'box': list[Float, 4, 2]}"
-        object_info = segments_info['objects'][obj_idx - 1]
+        object_info = segments_info["objects"][obj_idx - 1]
         assert object_info["id"] == obj_idx
 
-        # isthing = object_info["isthing"]
-        # well it is just using stuff IMHO
-        id_map, classes_map = if_thing_stuff_maps[False]
-        id = id_map[object_info["category_id"]]
-        assert id == object_info["category_id"]
-        category = classes_map[id]
+        category = get_object_info_category(object_info)
         categories.append(category)
 
-        pixels_to_fit = np.array(np.where(segmemtation_map == obj_idx)).T
+        pixels_to_fit = np.array(np.where(segmentation_map == obj_idx)).T
         box = fit_min_area_rect(pixels_to_fit)
         boxes_unscaled.append(box.tolist().copy())
         box *= scale
         box = box.tolist()
         boxes_original.append(box)
 
-        # assert
-        box_data = object_info["box"]
-        assert box_data == box
-
-
     x_i_int_unscaled_ret = np.array(x_i_int_unscaled_ret)
     x_i_int_ret = np.array(x_i_int_ret)
     x_i_int_out_unscaled_ret = np.array(x_i_int_out_unscaled_ret)
     x_i_int_out_ret = np.array(x_i_int_out_ret)
     return categories, \
-           ds_categories, \
+           config_entry['names'], \
            boxes_original, \
            boxes_unscaled, \
            x_i_int_unscaled_ret, \
@@ -179,6 +175,8 @@ def visualize_image(img_to_show,
     rectangles = [r for r in rectangles if len(r) > 0]
     rectangles = np.array(rectangles)
     _, ax = plt.subplots(1, 1)
+    ax.set_xlim(0, img_to_show.shape[1])
+    ax.set_ylim(img_to_show.shape[0], 0)
     # ax.set_axis_off()
     ax.imshow(img_to_show)
     if len(x_i_proper) > 0:
@@ -186,11 +184,11 @@ def visualize_image(img_to_show,
     if len(x_i_out) > 0:
         ax.plot(x_i_out[:, 0], x_i_out[:, 1], "rx", markersize="10", markeredgewidth=2)
     for rect in rectangles:
-        ax.plot(np.hstack((rect[:, 1], rect[0, 1])), np.hstack((rect[:, 0], rect[0, 0])), "y-.", linewidth=2)
+        ax.plot(np.hstack((rect[:, 1], rect[0, 1])), np.hstack((rect[:, 0], rect[0, 0])), "r-.", linewidth=2)
 
-    plt.title(title)
+    plt.title(title, fontsize="x-small")
     if save_path:
-        plt.savefig(save_path, bbox_inches="tight")
+        plt.savefig(save_path) #, bbox_inches="tight")
     if show:
         plt.show()
     plt.close()
@@ -217,15 +215,143 @@ def get_or_infer(args, config_entry):
     return segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img
 
 
+def get_boxes_classes(config_entry,
+                      segments_info,
+                      segmentation_map,
+                      original_img):
+
+    # object_info = "{'id': 1,
+    # 'isthing': False,
+    # 'category_id': 0,
+    # 'area': 112475.0,
+    # 'box': list[Float, 4, 2]}"
+
+    # segm. category -> list of object infos
+    segmentation_category_map = defaultdict(list)
+    for object_info in segments_info["objects"]:
+        category = get_object_info_category(object_info)
+        segmentation_category_map[category].append(object_info["id"])
+
+    # unique object info or None of not unique
+    object_infos = []
+    first_ds_category_id = {}
+    for i, name in enumerate(config_entry["names"]):
+        if first_ds_category_id.__contains__(name):
+            object_infos[first_ds_category_id(name)] = None
+            object_infos.append(None)
+            continue
+        first_ds_category_id[name] = i
+
+        # arkit_class_names_map[name] => seg.category => segmented ids
+        looking_for = arkit_class_names_map[name]
+        all_idss_found = []
+        for lfc in looking_for:
+            all_idss_found.extend(segmentation_category_map[lfc])
+            if len(all_idss_found) > 1:
+                break
+        if len(all_idss_found) == 1:
+            sid = all_idss_found[0]
+            object_info = segments_info["objects"][sid - 1]
+            assert object_info["id"] == sid
+            object_infos.append(object_info)
+        else:
+            object_infos.append(None)
+
+    # scale
+    scale = get_scale(original_img, segmentation_map)
+    boxes_unscaled = []
+    boxes_original = []
+    categories = []
+    # ds_categories = config_entry['names']
+
+    for object_info in object_infos:
+        if object_info is None:
+            boxes_unscaled.append([])
+            boxes_original.append([])
+            categories.append("not found")
+            continue
+        sid = object_info["id"]
+        pixels_to_fit = np.array(np.where(segmentation_map == sid)).T
+        box = fit_min_area_rect(pixels_to_fit)
+        boxes_unscaled.append(box.tolist().copy())
+        box *= scale
+        box = box.tolist()
+        boxes_original.append(box)
+
+        category = get_object_info_category(object_info)
+        categories.append(category)
+
+    return categories, \
+           config_entry['names'], \
+           boxes_original, \
+           boxes_unscaled
+
+
+def split_str(s, max_row_length):
+
+    ret = ""
+    for i in range(max(1, (len(s) - 1) // max_row_length + 1)):
+        beg = i * max_row_length
+        end = (i + 1) * max_row_length
+        ret += f"\n{s[beg:end]}"
+    return ret
+
+
+def compute_boxes_based_on_classes(config_entry,
+                                   segments_info,
+                                   segmentation_map,
+                                   segm_contrast_img,
+                                   segm_vis_img,
+                                   original_img,
+                                   args):
+
+    categories, ds_categories, boxes_original, boxes_unscaled = \
+        get_boxes_classes(config_entry,
+                          segments_info,
+                          segmentation_map,
+                          original_img)
+
+    path_pref = get_simple_path_prefix(config_entry, args.out_data_root)
+    mappings = ", ".join([f"{dsc}->{c}" for dsc, c in zip(ds_categories, categories)])
+    # print(f"mappings: {mappings}")
+    title = f"based on classes: map[arkit -> segmentation]: {mappings}"
+    title += f"\n ds categories: {ds_categories}"
+    segmentation_categories = [get_object_info_category(oi) for oi in segments_info["objects"]]
+    s = f"segm. categories: {segmentation_categories}"
+    title += split_str(s, max_row_length=130)
+    visualize_image(segm_contrast_img,
+                    [],
+                    [],
+                    boxes_unscaled,
+                    title=title,
+                    save_path=f"{path_pref}_segmentation_contrast_boxes_classes.png",
+                    show=args.show)
+    # visualize_image(segm_vis_img,
+    #                 [],
+    #                 [],
+    #                 boxes_unscaled,
+    #                 title=title,
+    #                 show=args.show)
+    # visualize_image(original_img,
+    #                 [],
+    #                 [],
+    #                 boxes_original,
+    #                 title=title,
+    #                 show=args.show)
+
+    # write to orig config
+    config_entry[BOXES_2D_KEY_CLASSES] = boxes_original
+
+
 def compute_boxes_based_on_x_gt(config_entry,
                                 segments_info,
                                 segmentation_map,
                                 segm_contrast_img,
                                 segm_vis_img,
                                 original_img,
-                                out_data_root):
+                                args):
 
-    # scale (merge?)
+    # scale
     scale = get_scale(original_img, segmentation_map)
 
     # all boxes/x_is...
@@ -239,25 +365,32 @@ def compute_boxes_based_on_x_gt(config_entry,
     x_i_int_out = get_boxes(config_entry, segments_info, segmentation_map, scale)
 
     # visualization
-    path_pref = get_simple_path_prefix(config_entry, out_data_root)
-    title = ", ".join([f"{dsc}->{c}" for dsc, c in zip(ds_categories, categories)])
+    path_pref = get_simple_path_prefix(config_entry, args.out_data_root)
+    title = "based on projection: map[arkit -> segmentation]:" + ", ".join([f"{dsc}->{c}" for dsc, c in zip(ds_categories, categories)])
     title += f"\n ds categories: {ds_categories}"
+    segmentation_categories = [get_object_info_category(oi) for oi in segments_info["objects"]]
+    s = f"segm. categories: {segmentation_categories}"
+    title += split_str(s, max_row_length=130)
+
     visualize_image(segm_contrast_img,
                     x_i_int_unscaled,
                     x_i_int_out_unscaled,
                     boxes_unscaled,
                     title=title,
-                    save_path=f"{path_pref}_segmentation_contrast_boxes_x_gt.png")
+                    save_path=f"{path_pref}_segmentation_contrast_boxes_x_gt.png",
+                    show=args.show)
     # visualize_image(segm_vis_img,
     #                 x_i_int_unscaled,
     #                 x_i_int_out_unscaled,
     #                 boxes_unscaled,
-    #                 title=title)
+    #                 title=title,
+    #                 show=args.show)
     # visualize_image(original_img,
     #                 x_i_int,
     #                 x_i_int_out,
     #                 boxes_original,
-    #                 title=title)
+    #                 title=title,
+    #                 show=args.show)
 
     # write to orig config
     config_entry[BOXES_2D_KEY_PROJECTION] = boxes_original
@@ -268,16 +401,17 @@ def compute():
     args = scene_args()
 
     start_time = time.time()
-    data_entries, ready_entries, min_counts_map, config_read = get_cached_data(args.conf_base_path,
+    data_entries, or_ready_entries, min_counts_map, config_read = get_cached_data(args.conf_base_path,
                                                                                format_suffix=ConfStatic.toml_suffix,
                                                                                out_log=True)
 
+    ready_entries = or_ready_entries
     for e_i, config_entry in enumerate(data_entries):
 
-        if config_entry.__contains__(BOXES_2D_KEY_PROJECTION):
+        if config_entry.__contains__(BOXES_2D_KEY_PROJECTION) and config_entry.__contains__(BOXES_2D_KEY_CLASSES):
+        # if config_entry.__contains__(BOXES_2D_KEY_CLASSES):
             continue
         else:
-            ready_entries += 1
             if args.max_entries and ready_entries > args.max_entries:
                 break
 
@@ -294,15 +428,25 @@ def compute():
                                     segm_contrast_img,
                                     segm_vis_img,
                                     original_img,
-                                    args.out_data_root)
+                                    args)
 
-        if ready_entries % args.cache_every_other == 0:
+        compute_boxes_based_on_classes(config_entry,
+                                       segments_info,
+                                       segmentation_map,
+                                       segm_contrast_img,
+                                       segm_vis_img,
+                                       original_img,
+                                       args)
+
+        if ready_entries % args.cache_every_other == 0 and ready_entries != or_ready_entries:
             sp_file_path = f"{args.conf_base_path}_sp={ready_entries}"
             save(f"{sp_file_path}{args.format_suffix}",
                  data_entries,
                  objects_counts_map={},
                  at_least_objects_counts_map=min_counts_map,
                  conf_attribute_map=config_read)
+        if e_i != len(data_entries) - 1:
+            ready_entries += 1
 
     print("Saving the final file")
     elapased = time.time() - start_time

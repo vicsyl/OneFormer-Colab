@@ -1,6 +1,6 @@
 import argparse
 
-from common.data_parsing import ConfStatic
+from common.data_parsing import Configuration
 
 
 def scene_args():
@@ -23,7 +23,7 @@ def scene_args():
     # configs/ARKitScenes=obj=2_max=100_sp=10.toml => conf_base_path = configs/ARKitScenes=obj=2_max=100
     parser.add_argument("--conf_base_path", type=str, default=None)
     parser.add_argument("--cache_every_other", type=int, default=5000)
-    parser.add_argument("--format_suffix", type=str, default=ConfStatic.toml_suffix)
+    parser.add_argument("--format_suffix", type=str, default=Configuration.toml_suffix)
     args = parser.parse_args()
     print(f"Args: {args}")
     return args

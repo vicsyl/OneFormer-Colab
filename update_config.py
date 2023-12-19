@@ -7,7 +7,7 @@ import numpy as np
 from pyquaternion import Quaternion
 
 from common.common_transforms import project_metropolis
-from common.data_parsing import save, get_cached_data, ConfStatic, read_toml
+from common.data_parsing import save, get_cached_data, Configuration, read_toml
 from common.fitting import fit_min_area_rect
 from common.vanishing_point import change_x_3d_arkit, change_r_arkit
 from metadata import *
@@ -88,7 +88,7 @@ def get_object_info_category(object_info):
     return category
 
 
-def get_boxes(config_entry, segments_info, segmentation_map, scale):
+def get_boxes_based_on_projection(config_entry, segments_info, segmentation_map, scale):
 
     K = np.array(config_entry['K'].copy())
     R_cs_l = config_entry['R_cs'].copy()
@@ -216,10 +216,10 @@ def get_or_infer(args, config_entry):
     return segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img
 
 
-def get_boxes_classes(config_entry,
-                      segments_info,
-                      segmentation_map,
-                      original_img):
+def get_boxes_based_on_classes(config_entry,
+                               segments_info,
+                               segmentation_map,
+                               original_img):
 
     # object_info = "{'id': 1,
     # 'isthing': False,
@@ -243,7 +243,7 @@ def get_boxes_classes(config_entry,
             continue
         first_ds_category_id[name] = i
 
-        # arkit_class_names_map[name] => seg.category => segmented ids
+        # arkit_class_names_map[name]: seg.category => segmented ids
         looking_for = arkit_class_names_map[name]
         all_idss_found = []
         for lfc in looking_for:
@@ -308,17 +308,19 @@ def compute_boxes_based_on_classes(config_entry,
                                    args):
 
     categories, ds_categories, boxes_original, boxes_unscaled = \
-        get_boxes_classes(config_entry,
-                          segments_info,
-                          segmentation_map,
-                          original_img)
+        get_boxes_based_on_classes(config_entry,
+                                   segments_info,
+                                   segmentation_map,
+                                   original_img)
 
     path_pref = get_simple_path_prefix(config_entry, args.out_data_root)
     mappings = ", ".join([f"{dsc}->{c}" for dsc, c in zip(ds_categories, categories)])
     # print(f"mappings: {mappings}")
     title = f"based on classes: map[arkit -> segmentation]: {mappings}"
     title += f"\n ds categories: {ds_categories}"
+
     segmentation_categories = [get_object_info_category(oi) for oi in segments_info["objects"]]
+
     s = f"segm. categories: {segmentation_categories}"
     title += split_str(s, max_row_length=130)
     # title += str(boxes_unscaled)
@@ -346,13 +348,13 @@ def compute_boxes_based_on_classes(config_entry,
     config_entry[BOXES_2D_KEY_CLASSES] = boxes_original
 
 
-def compute_boxes_based_on_x_gt(config_entry,
-                                segments_info,
-                                segmentation_map,
-                                segm_contrast_img,
-                                segm_vis_img,
-                                original_img,
-                                args):
+def compute_boxes_based_on_projection(config_entry,
+                                      segments_info,
+                                      segmentation_map,
+                                      segm_contrast_img,
+                                      segm_vis_img,
+                                      original_img,
+                                      args):
 
     # scale
     scale = get_scale(original_img, segmentation_map)
@@ -365,7 +367,7 @@ def compute_boxes_based_on_x_gt(config_entry,
     x_i_int_unscaled, \
     x_i_int, \
     x_i_int_out_unscaled, \
-    x_i_int_out = get_boxes(config_entry, segments_info, segmentation_map, scale)
+    x_i_int_out = get_boxes_based_on_projection(config_entry, segments_info, segmentation_map, scale)
 
     # visualization
     path_pref = get_simple_path_prefix(config_entry, args.out_data_root)
@@ -405,7 +407,7 @@ def compute():
 
     start_time = time.time()
     data_entries, or_ready_entries, min_counts_map, config_read = get_cached_data(args.conf_base_path,
-                                                                               format_suffix=ConfStatic.toml_suffix,
+                                                                               format_suffix=Configuration.toml_suffix,
                                                                                out_log=True)
 
     ready_entries = or_ready_entries
@@ -427,13 +429,13 @@ def compute():
         segm_vis_img, \
         original_img = get_or_infer(args, config_entry)
 
-        compute_boxes_based_on_x_gt(config_entry,
-                                    segments_info,
-                                    segmentation_map,
-                                    segm_contrast_img,
-                                    segm_vis_img,
-                                    original_img,
-                                    args)
+        compute_boxes_based_on_projection(config_entry,
+                                          segments_info,
+                                          segmentation_map,
+                                          segm_contrast_img,
+                                          segm_vis_img,
+                                          original_img,
+                                          args)
 
         compute_boxes_based_on_classes(config_entry,
                                        segments_info,

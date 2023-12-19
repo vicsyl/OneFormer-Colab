@@ -4,7 +4,7 @@ import os
 import sys
 import time
 
-from common.data_parsing import get_cached_data, ConfStatic, save
+from common.data_parsing import get_cached_data, Configuration, save
 from data_save import save_data
 from set_args import scene_args
 
@@ -182,7 +182,7 @@ def loop_compute():
     args = scene_args()
     start_time = time.time()
     data_entries, ready_entries, min_counts_map, config_read = get_cached_data(args.conf_base_path,
-                                                                               format_suffix=ConfStatic.toml_suffix,
+                                                                               format_suffix=Configuration.toml_suffix,
                                                                                out_log=True)
 
     for e_i, config_entry in enumerate(data_entries):

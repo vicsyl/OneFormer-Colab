@@ -219,23 +219,22 @@ def get_or_infer(args, config_entry):
 class Stats:
 
     log_every_n = 100
-    counter_scenes = 0
-    counter_missing_mapping_scenes = 0
+    counter_objects = 0
+    counts_mapped_to = defaultdict(int)
     counts = defaultdict(int)
 
     @staticmethod
-    def add_mapping_missing(missing):
-        if missing:
-            Stats.counter_missing_mapping_scenes += 1
-        Stats.counter_scenes += 1
-        if Stats.counter_scenes % Stats.log_every_n == 0:
-            print(f"Stats (missing mapping): {Stats.counter_missing_mapping_scenes} / {Stats.counter_scenes}")
+    def add_mapped_to(mapped_to):
+        Stats.counts_mapped_to[mapped_to] += 1
+        if mapped_to:
+            Stats.counts_mapped_to[mapped_to] += 1
+        Stats.counter_objects += 1
+        if Stats.counter_objects % Stats.log_every_n == 0:
+            print(f"Stats (mapped to): {Stats.counts_mapped_to}")
             print(f"Stats (connected components): {Stats.counts}")
-
 
     @staticmethod
     def add_count(count):
-        print(f"adding {count}")
         Stats.counts[count] += 1
 
 
@@ -259,7 +258,6 @@ def get_boxes_based_on_classes(config_entry,
     # unique object info or None of not unique
     object_infos = []
     first_ds_category_id = {}
-    mapping_is_missing = False
     for i, name in enumerate(config_entry["names"]):
         if first_ds_category_id.__contains__(name):
             object_infos[first_ds_category_id[name]] = None
@@ -274,6 +272,8 @@ def get_boxes_based_on_classes(config_entry,
             all_idss_found.extend(segmentation_category_map[lfc])
             if len(all_idss_found) > 1:
                 break
+        mapping_to = len(all_idss_found)
+        Stats.add_mapped_to(mapping_to)
         if len(all_idss_found) == 1:
             sid = all_idss_found[0]
             object_info = segments_info["objects"][sid - 1]
@@ -282,8 +282,7 @@ def get_boxes_based_on_classes(config_entry,
         else:
             object_infos.append(None)
             if len(all_idss_found) == 0:
-                mapping_is_missing = True
-    Stats.add_mapping_missing(mapping_is_missing)
+                mapping_to = True
 
     # scale
     scale = get_scale(original_img, segmentation_map)

@@ -216,6 +216,29 @@ def get_or_infer(args, config_entry):
     return segments_info, segmentation_map, segm_contrast_img, segm_vis_img, original_img
 
 
+class Stats:
+
+    log_every_n = 1
+    counter_scenes = 0
+    counter_missing_mapping_scenes = 0
+    counts = defaultdict(int)
+
+    @staticmethod
+    def add_mapping_missing(missing):
+        if missing:
+            Stats.counter_missing_mapping_scenes += 1
+        Stats.counter_scenes += 1
+        if Stats.counter_scenes % Stats.log_every_n == 0:
+            print(f"Stats (missing mapping): {Stats.counter_missing_mapping_scenes} / {Stats.counter_scenes}")
+            print(f"Stats (connected components): {Stats.counts}")
+
+
+    @staticmethod
+    def add_count(count):
+        print(f"adding {count}")
+        Stats.counts[count] += 1
+
+
 def get_boxes_based_on_classes(config_entry,
                                segments_info,
                                segmentation_map,
@@ -236,6 +259,7 @@ def get_boxes_based_on_classes(config_entry,
     # unique object info or None of not unique
     object_infos = []
     first_ds_category_id = {}
+    mapping_is_missing = False
     for i, name in enumerate(config_entry["names"]):
         if first_ds_category_id.__contains__(name):
             object_infos[first_ds_category_id[name]] = None
@@ -257,6 +281,9 @@ def get_boxes_based_on_classes(config_entry,
             object_infos.append(object_info)
         else:
             object_infos.append(None)
+            if len(all_idss_found) == 0:
+                mapping_is_missing = True
+    Stats.add_mapping_missing(mapping_is_missing)
 
     # scale
     scale = get_scale(original_img, segmentation_map)
@@ -273,6 +300,20 @@ def get_boxes_based_on_classes(config_entry,
             continue
         sid = object_info["id"]
         pixels_to_fit = np.array(np.where(segmentation_map == sid)).T
+
+        object_non_object = np.where(segmentation_map == sid, 128, 0).astype(np.uint8)
+        plt.figure()
+        plt.imshow(object_non_object)
+        total_labels, cc_ids = cv.connectedComponents(object_non_object)
+        min_pixels = 300
+        valid_components = -1
+        for cc_i in range(total_labels):
+            pixel_count = (cc_ids == cc_i).sum()
+            # print(f"pixel count: {pixel_count}")
+            if pixel_count > min_pixels:
+                valid_components += 1
+        Stats.add_count(valid_components)
+
         pixels_to_fit = pixels_to_fit[:, [1, 0]]
         box = fit_min_area_rect(pixels_to_fit)
         boxes_unscaled.append(box.tolist().copy())

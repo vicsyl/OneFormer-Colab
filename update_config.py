@@ -218,7 +218,7 @@ def get_or_infer(args, config_entry):
 
 class Stats:
 
-    log_every_n = 1
+    log_every_n = 100
     counter_scenes = 0
     counter_missing_mapping_scenes = 0
     counts = defaultdict(int)

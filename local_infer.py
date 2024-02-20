@@ -36,7 +36,7 @@ def compute(root_in_dir, root_out_dir="./twelve_scenes_infer_layout"):
         rooms = only_dirs(osp.join(root_in_dir, scene))
         # rooms = ["kitchen"]
         for room in rooms:
-            in_path = os.path.join(root_in_dir, scene, room)
+            in_path = os.path.join(root_in_dir, scene, room, "data")
             out_dir = os.path.join(root_out_dir, scene, room)
             print(f"{in_path} => {out_dir}")
             infer_me(in_dir=in_path, out_dir=out_dir)

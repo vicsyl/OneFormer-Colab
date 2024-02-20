@@ -11,7 +11,7 @@ def infer_me(in_dir, out_dir):
         full_path = f"{in_dir}/{file_name}"
         if os.path.isfile(full_path) and file_name.endswith(".jpg"):
             print(f"{full_path} => {out_dir}/{file_name}")
-            infer = False
+            infer = True
             if not infer:
                 continue
 
